@@ -19,7 +19,6 @@
 
 package org.apache.nifi.processors.mongodb;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.BasicDBObject;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoCollection;
@@ -39,6 +38,10 @@ import org.apache.nifi.processor.util.JsonValidator;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,6 +51,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Iterator;
 
 @Tags({"mongo", "aggregation", "aggregate"})
 @CapabilityDescription("A processor that runs an aggregation query whenever a flowfile is received.")
@@ -73,11 +77,18 @@ public class RunMongoAggregation extends AbstractMongoProcessor {
 
     static final List<Bson> buildAggregationQuery(String query) throws IOException {
         List<Bson> result = new ArrayList<>();
+        JSONParser jsonParser = new JSONParser();
 
-        ObjectMapper mapper = new ObjectMapper();
-        List<Map> values = mapper.readValue(query, List.class);
-        for (Map<?, ?> val : values) {
-            result.add(new BasicDBObject(val));
+        try {
+            JSONArray queryArray = (JSONArray) jsonParser.parse(query);
+            Iterator<JSONObject> iterator = queryArray.iterator();
+
+            while(iterator.hasNext()) {
+                BasicDBObject bson = BasicDBObject.parse(iterator.next().toString());
+                result.add(bson);
+            }
+        } catch (ParseException e) {
+            throw new IOException(e.toString());
         }
 
         return result;
